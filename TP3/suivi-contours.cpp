@@ -1,13 +1,3 @@
-/*
-    Transformation en niveau de gris et affichage en fausses couleurs VGA
-
-    g++ -Wall --std=c++14 $(pkg-config opencv --cflags)  ex10-vga.cpp \
-                          $(pkg-config opencv --libs) -o ex10-vga
-    ./ex10-vga [-mag width height] [-thr seuil] image_in image_out
-
-    CC-BY Edouard.Thiel@univ-amu.fr - 07/10/2018
-*/
-
 #include <iostream>
 #include <cstring>
 #include <opencv2/opencv.hpp>
@@ -162,25 +152,28 @@ void applique_direction (int &x, int &y, int direction){
 }
 
 void suivre_un_contour (cv::Mat img_niv, int x, int y, int num_contour){
-	int x_t = x;
+	int x_t = x; // Position (x,y) du carré blanc acuel
 	int y_t = y;
-	int x_i, y_i, niv_courant ;
+	int x_i, y_i, niv_courant ; // Position du point de balayage et niveau courant
 	int direction = 5;
+	int i = 0, direction_ini; // Pour récuperer la première direction
 	do {
 		do {
 			x_i = x_t;
 			y_i = y_t;
 			applique_direction (x_i,y_i,direction);
 			direction = (direction + 1)%8;
-			std::cout << "x_i : " << x_i << std::endl;
-			std::cout << "y_i : " << y_i << std::endl << std::endl;
 			niv_courant = img_niv.at<uchar>(y_i,x_i);
-		} while(niv_courant != 255);
+		} while(niv_courant == 0);
 		direction = (direction + 4)%8;
+		if(i == 0){ // Pour récuperer la première direction
+			direction_ini = direction;
+			i == 1;
+		}
 		x_t = x_i;
-		y_t = y_i;
+		y_t = y_i;	
 		img_niv.at<uchar>(y_t,x_t) = 127;
-	} while(!(x_t != x && y_t != y && direction != 5)); // Implementer la direction
+	} while(x_t != x || y_t != y || direction != direction_ini); // Implementer la direction
 } 
 
 void effectuer_suivi_contours (cv::Mat img_niv)
