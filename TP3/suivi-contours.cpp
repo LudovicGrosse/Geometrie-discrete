@@ -172,7 +172,7 @@ void suivre_un_contour (cv::Mat img_niv, int x, int y, int num_contour){
 		}
 		x_t = x_i;
 		y_t = y_i;	
-		img_niv.at<uchar>(y_t,x_t) = 127;
+		img_niv.at<uchar>(y_t,x_t) = (num_contour  * 40) % 254; // Pour avoir des contours de couleur différente
 	} while(x_t != x || y_t != y || direction != direction_ini); // Implementer la direction
 } 
 
