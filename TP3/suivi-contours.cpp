@@ -137,18 +137,27 @@ void representer_en_couleurs_vga (cv::Mat img_niv, cv::Mat img_coul)
     }
 }
 
-void applique_direction (int &x, int &y, int direction){
-	switch (direction)  
-      {  
-         case 0: x++; break; 
-         case 1: x++; y++; break; 
-         case 2: y++; break; 
-         case 3: y++; x--; break; 
-         case 4: x--; break; 
-         case 5: x--;y--; break; 
-         case 6: y--; break; 
-         default: x++; y--; // case 7
-      } 
+void applique_direction (int &x_i, int &y_i, int &direction, int &count, cv::Mat img){
+	int x, y;
+	do {
+		x = x_i;
+		y = y_i; 
+		switch (direction) 
+		  {  
+		     case 0: x++; break; 
+		     case 1: x++; y++; break; 
+		     case 2: y++; break; 
+		     case 3: y++; x--; break; 
+		     case 4: x--; break; 
+		     case 5: x--;y--; break; 
+		     case 6: y--; break; 
+		     default: x++; y--; // case 7
+		  } 
+			 direction = (direction + 1)%8;
+			 count ++;
+	} while (x < 0 || x >= img.cols || y < 0 || y >= img.rows);
+	x_i = x;
+	y_i = y; 
 }
 
 bool suivant(cv::Mat img_niv, int &x, int &y, int &direction){
@@ -159,10 +168,8 @@ bool suivant(cv::Mat img_niv, int &x, int &y, int &direction){
 	do {
 		x_i = x;
 		y_i = y;
-		applique_direction (x_i,y_i,direction);
-		direction = (direction + 1)%8;
+		applique_direction (x_i,y_i,direction, count, img_niv);
 		niv_courant = img_niv.at<uchar>(y_i,x_i);
-		count ++;
 	} while(niv_courant == 0 && count < 8);
 	if (count == 8) return false ;
 	x = x_i;
@@ -185,10 +192,6 @@ void suivre_un_contour (cv::Mat img_niv, int x, int y, int num_contour){
 	do {
 		suivant(img_niv,x,y,direction);	
 		img_niv.at<uchar>(y,x) = (num_contour  * 40) % 254; // Pour avoir des contours de couleurs différentes
-
-		std::cout << "x: " << x << std::endl;
-		std::cout << "y: " << y << std::endl;
-		std::cout << "direction: " << direction << std::endl << std::endl;
 	} while(x != x_ini || y != y_ini || direction != dir_ini); // Implementer la direction
 } 
 
@@ -207,7 +210,7 @@ void effectuer_suivi_contours (cv::Mat img_niv)
         }
         niv_prec = niv_courant;
     }
-	std::cout << "FIN" << std::endl << std:: endl;
+	std::cout << "Nombre de contours: " << num_contour - 1 << std::endl;
 }
 
 // Calcul des images à afficher ; on ne modifie jamais img_src ici.
