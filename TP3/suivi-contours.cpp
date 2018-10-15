@@ -151,29 +151,45 @@ void applique_direction (int &x, int &y, int direction){
       } 
 }
 
-void suivre_un_contour (cv::Mat img_niv, int x, int y, int num_contour){
-	int x_t = x; // Position (x,y) du carré blanc acuel
-	int y_t = y;
-	int x_i, y_i, niv_courant ; // Position du point de balayage et niveau courant
-	int direction = 5;
-	int i = 0, direction_ini; // Pour récuperer la première direction
+bool suivant(cv::Mat img_niv, int &x, int &y, int &direction){
+	int x_i = x;
+	int y_i = y;
+	int niv_courant;
+	int count = -1;
 	do {
-		do {
-			x_i = x_t;
-			y_i = y_t;
-			applique_direction (x_i,y_i,direction);
-			direction = (direction + 1)%8;
-			niv_courant = img_niv.at<uchar>(y_i,x_i);
-		} while(niv_courant == 0);
-		direction = (direction + 4)%8;
-		if(i == 0){ // Pour récuperer la première direction
-			direction_ini = direction;
-			i == 1;
-		}
-		x_t = x_i;
-		y_t = y_i;	
-		img_niv.at<uchar>(y_t,x_t) = (num_contour  * 40) % 254; // Pour avoir des contours de couleur différente
-	} while(x_t != x || y_t != y || direction != direction_ini); // Implementer la direction
+		x_i = x;
+		y_i = y;
+		applique_direction (x_i,y_i,direction);
+		direction = (direction + 1)%8;
+		niv_courant = img_niv.at<uchar>(y_i,x_i);
+		count ++;
+	} while(niv_courant == 0 && count < 8);
+	if (count == 8) return false ;
+	x = x_i;
+	y = y_i;
+	direction = (direction + 4)%8;
+	return true;
+}
+
+void suivre_un_contour (cv::Mat img_niv, int x, int y, int num_contour){
+	int direction = 5;
+	img_niv.at<uchar>(y,x) = (num_contour  * 40) % 254; 
+
+	if(! suivant(img_niv,x,y,direction)) return;	// Pour gérer la terminaison et les points ponctuels
+	img_niv.at<uchar>(y,x) = (num_contour  * 40) % 254; 
+
+	int x_ini = x;
+	int y_ini = y;
+	int dir_ini = direction;
+
+	do {
+		suivant(img_niv,x,y,direction);	
+		img_niv.at<uchar>(y,x) = (num_contour  * 40) % 254; // Pour avoir des contours de couleurs différentes
+
+		std::cout << "x: " << x << std::endl;
+		std::cout << "y: " << y << std::endl;
+		std::cout << "direction: " << direction << std::endl << std::endl;
+	} while(x != x_ini || y != y_ini || direction != dir_ini); // Implementer la direction
 } 
 
 void effectuer_suivi_contours (cv::Mat img_niv)
