@@ -92,6 +92,7 @@ class My {
     int clic_x = 0;
     int clic_y = 0;
     int clic_n = 0;
+	int connexite = 0; // 0 pour 4, 1 pour 8
 };
 
 
@@ -137,15 +138,16 @@ void representer_en_couleurs_vga (cv::Mat img_niv, cv::Mat img_coul)
     }
 }
 
-bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul) // Pix est un point blanc
+bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connexite) // Pix est un point blanc
 {
 	if (x == 0 || x == img_niv.cols - 1 || y == 0 || y == img_niv.rows - 1) return true; // Si au bord
-	int voisin;
+	int voisin, n;
+	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1,}; 
 	
-	int v_x[4] = {-1,1,0,0}; // voisins dans le cas 4_vois
-	int v_y[4] = {0,0,-1,1}; 
-	int n = 4;
-
+	if (connexite == 0) n = 4;
+	else n = 8;
+	
 	for (int i = 0; i < n; i++){
 		voisin = img_niv.at<uchar>(y + v_y[i],x + v_x[i]);
 		if (voisin == coul) return true;
@@ -153,23 +155,26 @@ bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul) // Pix est
 	return false;
 }
 
-void effectuer_pelage_contours (cv::Mat img_niv /*,int connexite*/)
+void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
 { 
 	int coul, coul_anc, pix;
 	int i = 0;
+	bool blanc  = true; // Pour la condition d'arrêt (Plus de blanc sur la photo)
 
-	while (i < 20) {
+	while (blanc) {
+		blanc = false;
 		i ++ ;
-	    coul = (20 * i) % 255 ;
-		coul_anc = (20 * (i - 1)) % 255 ;
+	    coul = (i) % 255 ;
+		coul_anc = (i - 1) % 255 ;
 
 		for (int y = 0; y < img_niv.rows; y++)
 		for (int x = 0; x < img_niv.cols; x++)
 		{
 			pix = img_niv.at<uchar>(y,x);
-			if (pix == 255 && est_un_contour(img_niv, x, y, pix, coul_anc)) 
+			if (pix == 255 && est_un_contour(img_niv, x, y, pix, coul_anc, connexite)) 
 			{
 				img_niv.at<uchar>(y,x) = coul;
+				blanc = true;
 			}
 		}
 	}
@@ -181,7 +186,7 @@ void calculer_images_resultat (My &my)
 {
     cv::threshold (my.img_src, my.img_niv, my.seuil, 255, cv::THRESH_BINARY);
 
-    effectuer_pelage_contours (my.img_niv/*, int connexite*/);
+    effectuer_pelage_contours (my.img_niv, my.connexite);
 
     representer_en_couleurs_vga (my.img_niv, my.img_coul);
 
@@ -244,9 +249,13 @@ int onKeyPressEvent (int key, void *data)
     switch (key) {
         case ' ' :
             std::cout << "Touche espace" << std::endl;
-            //dessiner_un_rect (my->img_src);
             my->flag1 = 1;
             break;
+		case 'c':
+            std::cout << "Touche c" << std::endl;
+			my -> connexite = 1 - my -> connexite;
+            my->flag1 = 1;
+            break;	
         default :
             std::cout << "Touche '" << char(key) << "'" << std::endl;
             break;
@@ -316,7 +325,6 @@ int main (int argc, char**argv)
 
         // On recalcule les images résultat et on réaffiche si le flag est à 1.
         if (my.flag1) {
-            //std::cout << "Calcul images puis affichage" << std::endl;
             calculer_images_resultat (my);
             cv::imshow ("ImageSrc", my.img_res1);
             cv::imshow ("Loupe"   , my.img_res2);
