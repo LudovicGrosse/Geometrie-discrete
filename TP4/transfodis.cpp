@@ -175,6 +175,8 @@ void inverser_couleurs (cv::Mat img)
 
 // Placez ici vos fonctions de transformations à la place de ces exemples
 
+// Transformation 1 --------------------------
+
 bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connexite) // Pix est un point blanc
 {
 	if (x == 0 || x == img_niv.cols - 1 || y == 0 || y == img_niv.rows - 1) return true; // Si au bord
@@ -194,6 +196,10 @@ bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connex
 
 void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
 { 
+ 	if (img_niv.type() != CV_8UC1) {
+        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
+        return;
+    }
 	int coul, coul_anc, pix;
 	int i = 0;
 	bool blanc  = true; // Pour la condition d'arrêt (Plus de blanc sur la photo)
@@ -217,38 +223,56 @@ void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
 	}
 }
 
-void transformer_bandes_verticales (cv::Mat img_niv)
+// Transformation 2 --------------------------
+
+void detecter_maximums_locaux (cv::Mat img_niv, int connexite)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
         return;
     }
+	cv::Mat img_pelee = img_niv.clone(); // On effectue le pelage sur une copie de l'image
+	effectuer_pelage_contours (img_pelee, connexite);
 
+	int voisin, x_i, y_i, pix, max;
+	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1,}; 
+	int n = connexite ? 8 : 4;
+	
     for (int y = 0; y < img_niv.rows; y++)
     for (int x = 0; x < img_niv.cols; x++)
     {
-        int g = img_niv.at<uchar>(y,x);
-        if (g > 0) {
-            img_niv.at<uchar>(y,x) = x % 256;
-        }
-    }
+		pix = img_pelee.at<uchar>(y,x);
+		max = pix; ;
+		if (pix != 0)
+		{
+			for (int i = 0; i < n; i++)
+			{
+				x_i = x + v_x[i];
+				y_i = y + v_y[i];
+				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols && y_i < img_niv.rows) 
+				{
+					voisin = img_pelee.at<uchar>(y_i,x_i);
+					if (voisin > pix) {max = voisin; break;}
+				}
+			}
+		}
+		img_niv.at<uchar>(y,x) = (max == pix) ? max : img_niv.at<uchar>(y,x);
+	}	
 }
 
-void transformer_bandes_diagonales (cv::Mat img_niv)
+// Transformation 3 --------------------------
+
+void effectuer_pelage_RDT (cv::Mat img_niv, int connexite)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
         return;
     }
 
-    for (int y = 0; y < img_niv.rows; y++)
-    for (int x = 0; x < img_niv.cols; x++)
-    {
-        int g = img_niv.at<uchar>(y,x);
-        if (g > 0) {
-            img_niv.at<uchar>(y,x) = (x+y) % 256;
-        }
-    }
+
+
+
 }
 
 // Appelez ici vos transformations selon affi
@@ -259,10 +283,10 @@ void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
             effectuer_pelage_contours (img_niv, connexite);
             break;
         case My::A_TRANS2 :
-            transformer_bandes_verticales (img_niv);
+            detecter_maximums_locaux (img_niv, connexite);
             break;
         case My::A_TRANS3 :
-            transformer_bandes_diagonales (img_niv);
+            effectuer_pelage_RDT (img_niv, connexite);
             break;
         default : ;
     }
@@ -324,8 +348,8 @@ void afficher_aide() {
         "   o    affiche l'image src originale\n"
         "   s    affiche l'image src seuillée\n"
         "   1    affiche l'image pelée\n"
-        "   2    affiche la transformation 2\n"
-        "   3    affiche la transformation 3\n"
+        "   2    affiche les maximums locaux (Modulo 16)\n"
+        "   3    affiche l'image rétablie par distance inverse\n"
         "  esc   quitte\n"
     << std::endl;
 }
@@ -482,7 +506,7 @@ int main (int argc, char**argv)
         {
             // std::cout << "Calcul transfos" << std::endl;
             if (my.affi != My::A_ORIG) {
-            	cv::Mat img_gry;
+            	cv::Mat img_gry; // On effectue à nouveau le seuillage car l'image pelée en a besoin
             	cv::cvtColor (my.img_src, img_gry, cv::COLOR_BGR2GRAY);
             	cv::threshold (img_gry, my.img_niv, my.seuil, 255, cv::THRESH_BINARY);
                 effectuer_transformations (my.affi, my.img_niv, my.connexite);
