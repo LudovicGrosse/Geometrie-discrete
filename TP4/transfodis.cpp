@@ -149,7 +149,7 @@ class My {
     int  need_recalc  (Recalc level) { return level <= recalc; }
 
     // Rajoutez ici des codes A_TRANSx pour le calcul et l'affichage
-    enum Affi { A_ORIG, A_SEUIL, A_TRANS1, A_TRANS2, A_TRANS3 };
+    enum Affi { A_ORIG, A_SEUIL, A_TRANS1, A_TRANS2, A_TRANS3, A_TRANS4, A_TRANS5, A_TRANS6 };
     Affi affi = A_ORIG;
 };
 
@@ -182,7 +182,7 @@ bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connex
 	if (x == 0 || x == img_niv.cols - 1 || y == 0 || y == img_niv.rows - 1) return true; // Si au bord
 	int voisin, n;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
-	int v_y[8] = {0,0,-1,1,-1,1,-1,1,}; 
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
 	
 	if (connexite == 0) n = 4;
 	else n = 8;
@@ -236,7 +236,7 @@ void detecter_maximums_locaux (cv::Mat img_niv, int connexite)
 
 	int voisin, x_i, y_i, pix, max;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
-	int v_y[8] = {0,0,-1,1,-1,1,-1,1,}; 
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
 	int n = connexite ? 8 : 4;
 	
     for (int y = 0; y < img_niv.rows; y++)
@@ -270,10 +270,56 @@ void effectuer_pelage_RDT (cv::Mat img_niv, int connexite)
         return;
     }
 
+	detecter_maximums_locaux (img_niv, connexite); // "Compression" de l'image
+	
+	int max = 0;
+	int pix;
 
+	for (int y = 0; y < img_niv.rows; y++) // On récupère d'abord le max global pour déterminer le nb de tours de boucles à effectuer
+    for (int x = 0; x < img_niv.cols; x++)
+    {
+		pix = img_niv.at<uchar>(y,x);
+		if (pix < 255) 
+		{
+			max = pix > max ? pix : max;
+		}
+	}
 
+	int voisin, x_j, y_j;
+	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
+	int n = connexite ? 8 : 4;
+	int poids_i = max; // Poids des pixels en cours de traitement 
 
+	for (int i = 0; i < max - 1; i++) // Décompression
+	{
+		for (int y = 0; y < img_niv.rows; y++)
+    	for (int x = 0; x < img_niv.cols; x++)
+    	{	
+			pix = img_niv.at<uchar>(y, x) ;
+			if (pix == poids_i) {
+				for (int j = 0; j < n; j++) 
+				{
+					x_j = x + v_x[j];
+					y_j = y + v_y[j];
+					if (x_j >= 0 && y_j >= 0 && x_j < img_niv.cols && y_j < img_niv.rows) 
+					{
+						voisin = img_niv.at<uchar>(y_j, x_j) ;
+						img_niv.at<uchar>(y_j, x_j) = (voisin == 255) ? poids_i - 1 : voisin;
+					}
+				}
+			}
+		}
+		poids_i--;
+	}	
 }
+
+// Pour la suite
+
+	// int v_x1 = {-1,0,-1,1} // Voisins dans le premier passage
+	// int v_y1 = {0,-1,-1,-1}
+	// int v_x2 = {1,0,-1,1} // Voisins dans le second passage
+	// int v_y2 = {0,1,1,1}
 
 // Appelez ici vos transformations selon affi
 void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
@@ -287,6 +333,12 @@ void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
             break;
         case My::A_TRANS3 :
             effectuer_pelage_RDT (img_niv, connexite);
+            break;
+        case My::A_TRANS4 :
+            break;
+        case My::A_TRANS5 :
+            break;
+        case My::A_TRANS6 :
             break;
         default : ;
     }
@@ -350,6 +402,9 @@ void afficher_aide() {
         "   1    affiche l'image pelée\n"
         "   2    affiche les maximums locaux (Modulo 16)\n"
         "   3    affiche l'image rétablie par distance inverse\n"
+        "   4    transfo 4\n"
+        "   5    transfo 5\n"
+        "   6    transfo 6\n"
         "  esc   quitte\n"
     << std::endl;
 }
@@ -421,6 +476,21 @@ int onKeyPressEvent (int key, void *data)
         case '3' :
             std::cout << "Transformation 3" << std::endl;
             my->affi = My::A_TRANS3;
+            my->set_recalc(My::R_TRANSFOS);
+            break;
+        case '4' :
+            std::cout << "Transformation 4" << std::endl;
+            my->affi = My::A_TRANS4;
+            my->set_recalc(My::R_TRANSFOS);
+            break;
+        case '5' :
+            std::cout << "Transformation 5" << std::endl;
+            my->affi = My::A_TRANS5;
+            my->set_recalc(My::R_TRANSFOS);
+            break;
+        case '6' :
+            std::cout << "Transformation 6" << std::endl;
+            my->affi = My::A_TRANS6;
             my->set_recalc(My::R_TRANSFOS);
             break;
 
