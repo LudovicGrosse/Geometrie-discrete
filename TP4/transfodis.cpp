@@ -314,12 +314,61 @@ void effectuer_pelage_RDT (cv::Mat img_niv, int connexite)
 	}	
 }
 
-// Pour la suite
+// Transformation 4 --------------------------
 
-	// int v_x1 = {-1,0,-1,1} // Voisins dans le premier passage
-	// int v_y1 = {0,-1,-1,-1}
-	// int v_x2 = {1,0,-1,1} // Voisins dans le second passage
-	// int v_y2 = {0,1,1,1}
+void effectuer_seq_DT (cv::Mat img_niv, int connexite) 
+{
+
+    if (img_niv.type() != CV_8UC1) {
+        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
+        return;
+    }
+
+	int pix, voisin, x_i, y_i;
+	int n = connexite ? 4 : 2; 
+
+	int v_x1[4] = {-1,0,-1,1}; // Voisins dans le premier passage
+	int v_y1[4] = {0,-1,-1,-1};
+
+	int v_x2[4] = {1,0,-1,1}; // Voisins dans le second passage
+	int v_y2[4] = {0,1,1,1};
+
+	for (int y = 0; y < img_niv.rows; y++) // D'abord vers la droite et vers le bas
+    for (int x = 0; x < img_niv.cols; x++)
+	{
+		pix = img_niv.at<uchar>(y, x);
+		if (pix > 0) {
+			for (int i = 0; i < n; i++) 
+			{
+				x_i = x + v_x1[i];
+				y_i = y + v_y1[i];
+				voisin = (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols)? img_niv.at<uchar>(y_i, x_i) : 0; // Pour que les objets aux bords affectés par ce cas soient corrigés dans le second cas
+				pix = voisin + 1 < pix ? voisin + 1 : pix ;
+			}
+		img_niv.at<uchar>(y, x) = pix;
+		}
+	}
+
+    for (int y = img_niv.rows - 1; y >= 0; y--) // Puis vers la gauche et vers le haut
+    for (int x = img_niv.cols - 1; x >= 0; x--)
+	{
+		pix = img_niv.at<uchar>(y, x);
+		if (pix > 0) {
+			for (int i = 0; i < n; i++) 
+			{
+				x_i = x + v_x2[i];
+				y_i = y + v_y2[i];
+                voisin = (x_i >= 0 && y_i < img_niv.rows && x_i < img_niv.cols)? img_niv.at<uchar>(y_i, x_i) : 0; // Pour que les objets aux bords affectés par ce cas soient corrigés dans le second cas
+				pix = voisin + 1 < pix ? voisin + 1 : pix ;
+			}
+			img_niv.at<uchar>(y, x) = pix;
+		}
+	}
+}
+
+// Transformation 5 --------------------------
+
+// Transformation 6 --------------------------
 
 // Appelez ici vos transformations selon affi
 void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
@@ -335,6 +384,7 @@ void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
             effectuer_pelage_RDT (img_niv, connexite);
             break;
         case My::A_TRANS4 :
+			effectuer_seq_DT (img_niv, connexite);
             break;
         case My::A_TRANS5 :
             break;
@@ -402,8 +452,8 @@ void afficher_aide() {
         "   1    affiche l'image pelée\n"
         "   2    affiche les maximums locaux (Modulo 16)\n"
         "   3    affiche l'image rétablie par distance inverse\n"
-        "   4    transfo 4\n"
-        "   5    transfo 5\n"
+        "   4    affiche l'image pelée - Rosenfeld\n"
+        "   5    transfo les maximums locaux (Modulo 16) - Rosenfeld\n"
         "   6    transfo 6\n"
         "  esc   quitte\n"
     << std::endl;
@@ -464,7 +514,7 @@ int onKeyPressEvent (int key, void *data)
 
         // Rajoutez ici des touches pour les transformations
         case '1' :
-            std::cout << "Transformation : Pelage" << std::endl;
+            std::cout << "Transformation 1" << std::endl;
             my->affi = My::A_TRANS1;
             my->set_recalc(My::R_TRANSFOS);
             break;
