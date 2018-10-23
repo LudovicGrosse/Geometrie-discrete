@@ -223,97 +223,6 @@ void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
 	}
 }
 
-// Transformation 2 --------------------------
-
-void detecter_maximums_locaux (cv::Mat img_niv, int connexite)
-{
-    if (img_niv.type() != CV_8UC1) {
-        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
-        return;
-    }
-	cv::Mat img_pelee = img_niv.clone(); // On effectue le pelage sur une copie de l'image
-	effectuer_pelage_contours (img_pelee, connexite);
-
-	int voisin, x_i, y_i, pix, max;
-	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
-	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	int n = connexite ? 8 : 4;
-	
-    for (int y = 0; y < img_niv.rows; y++)
-    for (int x = 0; x < img_niv.cols; x++)
-    {
-		pix = img_pelee.at<uchar>(y,x);
-		max = pix; ;
-		if (pix != 0)
-		{
-			for (int i = 0; i < n; i++)
-			{
-				x_i = x + v_x[i];
-				y_i = y + v_y[i];
-				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols && y_i < img_niv.rows) 
-				{
-					voisin = img_pelee.at<uchar>(y_i,x_i);
-					if (voisin > pix) {max = voisin; break;}
-				}
-			}
-		}
-		img_niv.at<uchar>(y,x) = (max == pix) ? max : img_niv.at<uchar>(y,x);
-	}	
-}
-
-// Transformation 3 --------------------------
-
-void effectuer_pelage_RDT (cv::Mat img_niv, int connexite)
-{
-    if (img_niv.type() != CV_8UC1) {
-        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
-        return;
-    }
-
-	detecter_maximums_locaux (img_niv, connexite); // "Compression" de l'image
-	
-	int max = 0;
-	int pix;
-
-	for (int y = 0; y < img_niv.rows; y++) // On récupère d'abord le max global pour déterminer le nb de tours de boucles à effectuer
-    for (int x = 0; x < img_niv.cols; x++)
-    {
-		pix = img_niv.at<uchar>(y,x);
-		if (pix < 255) 
-		{
-			max = pix > max ? pix : max;
-		}
-	}
-
-	int voisin, x_j, y_j;
-	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
-	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	int n = connexite ? 8 : 4;
-	int poids_i = max; // Poids des pixels en cours de traitement 
-
-	for (int i = 0; i < max - 1; i++) // Décompression
-	{
-		for (int y = 0; y < img_niv.rows; y++)
-    	for (int x = 0; x < img_niv.cols; x++)
-    	{	
-			pix = img_niv.at<uchar>(y, x) ;
-			if (pix == poids_i) {
-				for (int j = 0; j < n; j++) 
-				{
-					x_j = x + v_x[j];
-					y_j = y + v_y[j];
-					if (x_j >= 0 && y_j >= 0 && x_j < img_niv.cols && y_j < img_niv.rows) 
-					{
-						voisin = img_niv.at<uchar>(y_j, x_j) ;
-						img_niv.at<uchar>(y_j, x_j) = (voisin == 255) ? poids_i - 1 : voisin;
-					}
-				}
-			}
-		}
-		poids_i--;
-	}	
-}
-
 // Transformation 4 --------------------------
 
 void effectuer_seq_DT (cv::Mat img_niv, int connexite) 
@@ -366,9 +275,161 @@ void effectuer_seq_DT (cv::Mat img_niv, int connexite)
 	}
 }
 
-// Transformation 5 --------------------------
+// Transformation 2 et 5 --------------------
+
+void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, int connexite)
+{
+    if (img_niv.type() != CV_8UC1) {
+        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
+        return;
+    }
+	cv::Mat img_pelee = img_niv.clone(); // On effectue le pelage sur une copie de l'image
+
+	if (affi == My::A_TRANS2) {
+		effectuer_pelage_contours (img_pelee, connexite);
+	}
+	else {
+		effectuer_seq_DT (img_pelee, connexite);
+	}
+
+	int voisin, x_i, y_i, pix, max;
+	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
+	int n = connexite ? 8 : 4;
+	
+    for (int y = 0; y < img_niv.rows; y++)
+    for (int x = 0; x < img_niv.cols; x++)
+    {
+		pix = img_pelee.at<uchar>(y,x);
+		max = pix; ;
+		if (pix != 0)
+		{
+			for (int i = 0; i < n; i++)
+			{
+				x_i = x + v_x[i];
+				y_i = y + v_y[i];
+				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols && y_i < img_niv.rows) 
+				{
+					voisin = img_pelee.at<uchar>(y_i,x_i);
+					if (voisin > pix) {max = voisin; break;}
+				}
+			}
+		}
+		img_niv.at<uchar>(y,x) = (max == pix) ? max : img_niv.at<uchar>(y,x);
+	}	
+}
+
+// Transformation 3 --------------------------
+
+void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
+{
+    if (img_niv.type() != CV_8UC1) {
+        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
+        return;
+    }
+
+	detecter_maximums_locaux (affi, img_niv, connexite); // "Compression" de l'image
+	
+	int max = 0;
+	int pix;
+
+	for (int y = 0; y < img_niv.rows; y++) // On récupère d'abord le max global pour déterminer le nb de tours de boucles à effectuer
+    for (int x = 0; x < img_niv.cols; x++)
+    {
+		pix = img_niv.at<uchar>(y,x);
+		if (pix < 255) 
+		{
+			max = pix > max ? pix : max;
+		}
+	}
+
+	int voisin, x_j, y_j;
+	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
+	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
+	int n = connexite ? 8 : 4;
+	int poids_i = max; // Poids des pixels en cours de traitement 
+
+	for (int i = 0; i < max - 1; i++) // Décompression
+	{
+		for (int y = 0; y < img_niv.rows; y++)
+    	for (int x = 0; x < img_niv.cols; x++)
+    	{	
+			pix = img_niv.at<uchar>(y, x) ;
+			if (pix == poids_i) {
+				for (int j = 0; j < n; j++) 
+				{
+					x_j = x + v_x[j];
+					y_j = y + v_y[j];
+					if (x_j >= 0 && y_j >= 0 && x_j < img_niv.cols && y_j < img_niv.rows) 
+					{
+						voisin = img_niv.at<uchar>(y_j, x_j) ;
+						img_niv.at<uchar>(y_j, x_j) = (voisin == 255) ? poids_i - 1 : voisin;
+					}
+				}
+			}
+		}
+		poids_i--;
+	}	
+}
 
 // Transformation 6 --------------------------
+
+void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
+{
+    if (img_niv.type() != CV_8UC1) {
+        std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
+        return;
+    }
+	
+	detecter_maximums_locaux (affi, img_niv, connexite); // "Compression" de l'image
+	
+	int pix, voisin, x_i, y_i;
+	int n = connexite ? 4 : 2; 
+
+	int v_x1[4] = {1,0,-1,1}; // Voisins dans le premier passage
+	int v_y1[4] = {0,1,1,1};
+
+	int v_x2[4] = {-1,0,-1,1}; // Voisins dans le second passage
+	int v_y2[4] = {0,-1,-1,-1};
+
+	for (int y = 0; y < img_niv.rows; y++) // D'abord vers la droite et vers le bas
+    for (int x = 0; x < img_niv.cols; x++)
+	{
+		pix = img_niv.at<uchar>(y, x);
+		if (pix > 0 && pix < 255) {
+			for (int i = 0; i < n; i++) 
+			{
+				x_i = x + v_x1[i];
+				y_i = y + v_y1[i];
+				if (x_i >= 0 && y_i < img_niv.rows && x_i < img_niv.cols) 
+				{
+					voisin = img_niv.at<uchar>(y_i, x_i);
+					img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - 1) ? pix - 1 : voisin ;
+				}
+			}
+		img_niv.at<uchar>(y, x) = pix;
+		}
+	}
+
+    for (int y = img_niv.rows - 1; y >= 0; y--) // Puis vers la gauche et vers le haut
+    for (int x = img_niv.cols - 1; x >= 0; x--)
+	{
+		pix = img_niv.at<uchar>(y, x);
+		if (pix > 0 && pix < 255) {
+			for (int i = 0; i < n; i++) 
+			{
+				x_i = x + v_x2[i];
+				y_i = y + v_y2[i];
+				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols) 
+				{
+					voisin = img_niv.at<uchar>(y_i, x_i);
+					img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - 1) ? pix - 1 : voisin ;
+				}
+			}
+		img_niv.at<uchar>(y, x) = pix;
+		}
+	}
+}
 
 // Appelez ici vos transformations selon affi
 void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
@@ -378,17 +439,19 @@ void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
             effectuer_pelage_contours (img_niv, connexite);
             break;
         case My::A_TRANS2 :
-            detecter_maximums_locaux (img_niv, connexite);
+            detecter_maximums_locaux (affi, img_niv, connexite);
             break;
         case My::A_TRANS3 :
-            effectuer_pelage_RDT (img_niv, connexite);
+            effectuer_pelage_RDT (affi, img_niv, connexite);
             break;
         case My::A_TRANS4 :
 			effectuer_seq_DT (img_niv, connexite);
             break;
         case My::A_TRANS5 :
+            detecter_maximums_locaux (affi, img_niv, connexite);
             break;
-        case My::A_TRANS6 :
+        case My::A_TRANS6 :	
+			effectuer_seq_RDT (affi, img_niv, connexite);
             break;
         default : ;
     }
