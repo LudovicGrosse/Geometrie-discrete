@@ -139,10 +139,12 @@ class My {
     int clic_x = 0;
     int clic_y = 0;
     int clic_n = 0;
-	int connexite = 1; // 1 pour 4, 2 pour 8
 
     enum Recalc { R_RIEN, R_LOUPE, R_TRANSFOS, R_SEUIL };
     Recalc recalc = R_SEUIL;
+
+ 	enum Connexite {D4, D8/*, d_1_2, d_2_3, d_3_4*/}; // On attribut des int pour pouvoir incrémenter lors de l'appui de "d"
+    Connexite connexite = D4;
 
     void reset_recalc ()             { recalc = R_RIEN; }
     void set_recalc   (Recalc level) { if (level > recalc) recalc = level; }
@@ -177,15 +179,22 @@ void inverser_couleurs (cv::Mat img)
 
 // Transformation 1 --------------------------
 
-bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connexite) // Pix est un point blanc
+bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, My::Connexite connexite) // Pix est un point blanc
 {
 	if (x == 0 || x == img_niv.cols - 1 || y == 0 || y == img_niv.rows - 1) return true; // Si au bord
 	int voisin, n;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
 	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	
-	if (connexite == 0) n = 4;
-	else n = 8;
+
+	switch(connexite) 
+	{
+		case My::D4:
+			n = 4;
+			break;
+		case My::D8:
+			n = 8;
+			break;
+	}
 	
 	for (int i = 0; i < n; i++){
 		voisin = img_niv.at<uchar>(y + v_y[i],x + v_x[i]);
@@ -194,7 +203,7 @@ bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, int connex
 	return false;
 }
 
-void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
+void effectuer_pelage_contours (cv::Mat img_niv , My::Connexite connexite)
 { 
  	if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -225,7 +234,7 @@ void effectuer_pelage_contours (cv::Mat img_niv , int connexite)
 
 // Transformation 4 --------------------------
 
-void effectuer_seq_DT (cv::Mat img_niv, int connexite) 
+void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite) 
 {
 
     if (img_niv.type() != CV_8UC1) {
@@ -233,8 +242,16 @@ void effectuer_seq_DT (cv::Mat img_niv, int connexite)
         return;
     }
 
-	int pix, voisin, x_i, y_i;
-	int n = connexite ? 4 : 2; 
+	int pix, voisin, x_i, y_i, n;
+	switch(connexite) 
+	{
+		case My::D4:
+			n = 2;
+			break;
+		case My::D8:
+			n = 4;
+			break;
+	}
 
 	int v_x1[4] = {-1,0,-1,1}; // Voisins dans le premier passage
 	int v_y1[4] = {0,-1,-1,-1};
@@ -277,7 +294,7 @@ void effectuer_seq_DT (cv::Mat img_niv, int connexite)
 
 // Transformation 2 et 5 --------------------
 
-void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, int connexite)
+void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -295,7 +312,17 @@ void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, int connexite)
 	int voisin, x_i, y_i, pix, max;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
 	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	int n = connexite ? 8 : 4;
+	int n;
+
+	switch(connexite) 
+	{
+		case My::D4:
+			n = 4;
+			break;
+		case My::D8:
+			n = 8;
+			break;
+	}
 	
     for (int y = 0; y < img_niv.rows; y++)
     for (int x = 0; x < img_niv.cols; x++)
@@ -321,7 +348,7 @@ void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, int connexite)
 
 // Transformation 3 --------------------------
 
-void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
+void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -346,8 +373,18 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
 	int voisin, x_j, y_j;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
 	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	int n = connexite ? 8 : 4;
+	int n;
 	int poids_i = max; // Poids des pixels en cours de traitement 
+
+	switch(connexite) 
+	{
+		case My::D4:
+			n = 4;
+			break;
+		case My::D8:
+			n = 8;
+			break;
+	}
 
 	for (int i = 0; i < max - 1; i++) // Décompression
 	{
@@ -374,7 +411,7 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
 
 // Transformation 6 --------------------------
 
-void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
+void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -383,8 +420,17 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
 	
 	detecter_maximums_locaux (affi, img_niv, connexite); // "Compression" de l'image
 	
-	int pix, voisin, x_i, y_i;
-	int n = connexite ? 4 : 2; 
+	int pix, voisin, x_i, y_i, n;
+	
+	switch(connexite) 
+	{
+		case My::D4:
+			n = 2;
+			break;
+		case My::D8:
+			n = 4;
+			break;
+	}
 
 	int v_x1[4] = {1,0,-1,1}; // Voisins dans le premier passage
 	int v_y1[4] = {0,1,1,1};
@@ -432,7 +478,7 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, int connexite)
 }
 
 // Appelez ici vos transformations selon affi
-void effectuer_transformations (My::Affi affi, cv::Mat img_niv, int connexite)
+void effectuer_transformations (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 {
     switch (affi) {
         case My::A_TRANS1 :
@@ -565,12 +611,16 @@ int onKeyPressEvent (int key, void *data)
             my->set_recalc(My::R_SEUIL);
             break;
         case 'c' :
-            my->connexite = 1 - my->connexite;
-			if (my->connexite) {
-            std::cout << "Nouvelle connexite : 8" << std::endl;
-			}
-			else {
-            std::cout << "Nouvelle connexite : 4" << std::endl;
+			switch(my->connexite) 
+			{
+				case My::D4:
+					my->connexite = My::D8;
+					std::cout << "Nouvelle connexite : 8" << std::endl;
+					break;
+				case My::D8:
+					my->connexite = My::D4;
+					std::cout << "Nouvelle connexite : 4" << std::endl;
+					break;
 			}
             my->set_recalc(My::R_TRANSFOS);
             break;
