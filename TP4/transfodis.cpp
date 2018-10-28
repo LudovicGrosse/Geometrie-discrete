@@ -143,8 +143,8 @@ class My {
     enum Recalc { R_RIEN, R_LOUPE, R_TRANSFOS, R_SEUIL };
     Recalc recalc = R_SEUIL;
 
- 	enum Connexite {D4, D8/*, d_1_2, d_2_3, d_3_4*/}; // On attribut des int pour pouvoir incrémenter lors de l'appui de "d"
-    Connexite connexite = D4;
+ 	enum Distance {D4, D8, D_1_2, D_2_3, D_3_4}; // On attribut des int pour pouvoir incrémenter lors de l'appui de "d"
+    Distance distance = D4;
 
     void reset_recalc ()             { recalc = R_RIEN; }
     void set_recalc   (Recalc level) { if (level > recalc) recalc = level; }
@@ -179,20 +179,20 @@ void inverser_couleurs (cv::Mat img)
 
 // Transformation 1 --------------------------
 
-bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, My::Connexite connexite) // Pix est un point blanc
+bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, My::Distance distance) // Pix est un point blanc
 {
 	if (x == 0 || x == img_niv.cols - 1 || y == 0 || y == img_niv.rows - 1) return true; // Si au bord
 	int voisin, n;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
 	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
 
-	switch(connexite) 
+	switch(distance) 
 	{
-		case My::D4:
-			n = 4;
-			break;
 		case My::D8:
 			n = 8;
+			break;
+		default:
+			n = 4;
 			break;
 	}
 	
@@ -203,7 +203,7 @@ bool est_un_contour(cv::Mat img_niv, int x, int y, int pix, int coul, My::Connex
 	return false;
 }
 
-void effectuer_pelage_contours (cv::Mat img_niv , My::Connexite connexite)
+void effectuer_pelage_contours (cv::Mat img_niv , My::Distance distance)
 { 
  	if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -223,7 +223,7 @@ void effectuer_pelage_contours (cv::Mat img_niv , My::Connexite connexite)
 		for (int x = 0; x < img_niv.cols; x++)
 		{
 			pix = img_niv.at<uchar>(y,x);
-			if (pix == 255 && est_un_contour(img_niv, x, y, pix, coul_anc, connexite)) 
+			if (pix == 255 && est_un_contour(img_niv, x, y, pix, coul_anc, distance)) 
 			{
 				img_niv.at<uchar>(y,x) = coul;
 				blanc = true;
@@ -234,7 +234,7 @@ void effectuer_pelage_contours (cv::Mat img_niv , My::Connexite connexite)
 
 // Transformation 4 --------------------------
 
-void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite) 
+void effectuer_seq_DT (cv::Mat img_niv, My::Distance distance) 
 {
 
     if (img_niv.type() != CV_8UC1) {
@@ -242,14 +242,23 @@ void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite)
         return;
     }
 
-	int pix, voisin, x_i, y_i, n;
-	switch(connexite) 
+	int pix, voisin, x_i, y_i, n, a, b;
+	switch(distance) 
 	{
 		case My::D4:
-			n = 2;
+			a = 1; b = 1; n = 2;
 			break;
 		case My::D8:
-			n = 4;
+			a = 1; b = 1; n = 4;
+			break;
+		case My::D_1_2:
+			a = 1; b = 2; n = 4;
+			break;
+		case My::D_2_3:
+			a = 2; b = 3; n = 4;
+			break;
+		case My::D_3_4:
+			a = 3; b = 4; n = 4;
 			break;
 	}
 
@@ -269,7 +278,12 @@ void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite)
 				x_i = x + v_x1[i];
 				y_i = y + v_y1[i];
 				voisin = (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols)? img_niv.at<uchar>(y_i, x_i) : 0; // Pour que les objets aux bords affectés par ce cas soient corrigés dans le second cas
-				pix = voisin + 1 < pix ? voisin + 1 : pix ;
+				if (i < 2) { // Voisins alignés
+					pix = voisin + a < pix ? voisin + a : pix ;
+				}	
+				else { // Voisins diagonaux
+					pix = voisin + b < pix ? voisin + b : pix ;
+				}
 			}
 		img_niv.at<uchar>(y, x) = pix;
 		}
@@ -285,7 +299,12 @@ void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite)
 				x_i = x + v_x2[i];
 				y_i = y + v_y2[i];
                 voisin = (x_i >= 0 && y_i < img_niv.rows && x_i < img_niv.cols)? img_niv.at<uchar>(y_i, x_i) : 0; // Pour que les objets aux bords affectés par ce cas soient corrigés dans le second cas
-				pix = voisin + 1 < pix ? voisin + 1 : pix ;
+				if (i < 2) { // Voisins alignés
+					pix = voisin + a < pix ? voisin + a : pix ;
+				}	
+				else { // Voisins diagonaux
+					pix = voisin + b < pix ? voisin + b : pix ;
+				}
 			}
 			img_niv.at<uchar>(y, x) = pix;
 		}
@@ -294,7 +313,7 @@ void effectuer_seq_DT (cv::Mat img_niv, My::Connexite connexite)
 
 // Transformation 2 et 5 --------------------
 
-void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
+void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, My::Distance distance)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
@@ -302,34 +321,53 @@ void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, My::Connexite con
     }
 	cv::Mat img_pelee = img_niv.clone(); // On effectue le pelage sur une copie de l'image
 
-	if (affi == My::A_TRANS2) {
-		effectuer_pelage_contours (img_pelee, connexite);
+	int n, a, b;
+
+	if (affi == My::A_TRANS2 || affi == My::A_TRANS3) {
+		effectuer_pelage_contours (img_pelee, distance);
+		switch(distance) 
+		{
+			case My::D8:
+				n = 8;
+				break;
+			default:
+				n = 4;
+				break;
+		}
+		a = 1; b = 1;
 	}
 	else {
-		effectuer_seq_DT (img_pelee, connexite);
+		effectuer_seq_DT (img_pelee, distance);
+		switch(distance) 
+		{
+			case My::D4:
+				a = 1; b = 1; n = 4;
+				break;
+			case My::D8:
+				a = 1; b = 1; n = 8;
+				break;
+			case My::D_1_2:
+				a = 1; b = 2; n = 8;
+				break;
+			case My::D_2_3:
+				a = 2; b = 3; n = 8;
+				break;
+			case My::D_3_4:
+				a = 3; b = 4; n = 8;
+				break;
+		}
 	}
 
 	int voisin, x_i, y_i, pix, max;
 	int v_x[8] = {-1,1,0,0,-1,-1,1,1};
 	int v_y[8] = {0,0,-1,1,-1,1,-1,1}; 
-	int n;
 
-	switch(connexite) 
-	{
-		case My::D4:
-			n = 4;
-			break;
-		case My::D8:
-			n = 8;
-			break;
-	}
-	
     for (int y = 0; y < img_niv.rows; y++)
     for (int x = 0; x < img_niv.cols; x++)
     {
 		pix = img_pelee.at<uchar>(y,x);
 		max = pix; ;
-		if (pix != 0)
+		if (pix > 0)
 		{
 			for (int i = 0; i < n; i++)
 			{
@@ -338,24 +376,29 @@ void detecter_maximums_locaux (My::Affi affi, cv::Mat img_niv, My::Connexite con
 				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols && y_i < img_niv.rows) 
 				{
 					voisin = img_pelee.at<uchar>(y_i,x_i);
-					if (voisin > pix) {max = voisin; break;}
+					if (i < 4){ // Voisins alignés
+						if (voisin >= pix + a) {max = voisin; break;}
+					}
+					else { // Voisins diagonaux
+						if (voisin >= pix + b) {max = voisin; break;}
+					}
 				}
 			}
 		}
-		img_niv.at<uchar>(y,x) = (max == pix) ? max : img_niv.at<uchar>(y,x);
+		img_niv.at<uchar>(y,x) = (max == pix) ? max : 0;
 	}	
 }
 
 // Transformation 3 --------------------------
 
-void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
+void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Distance distance)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
         return;
     }
 
-	detecter_maximums_locaux (affi, img_niv, connexite); // "Compression" de l'image
+	detecter_maximums_locaux (affi, img_niv, distance); // "Compression" de l'image
 	
 	int max = 0;
 	int pix;
@@ -364,10 +407,7 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexi
     for (int x = 0; x < img_niv.cols; x++)
     {
 		pix = img_niv.at<uchar>(y,x);
-		if (pix < 255) 
-		{
-			max = pix > max ? pix : max;
-		}
+		max = pix > max ? pix : max;
 	}
 
 	int voisin, x_j, y_j;
@@ -376,13 +416,13 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexi
 	int n;
 	int poids_i = max; // Poids des pixels en cours de traitement 
 
-	switch(connexite) 
+	switch(distance) 
 	{
-		case My::D4:
-			n = 4;
-			break;
 		case My::D8:
 			n = 8;
+			break;
+		default:
+			n = 4;
 			break;
 	}
 
@@ -400,7 +440,7 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexi
 					if (x_j >= 0 && y_j >= 0 && x_j < img_niv.cols && y_j < img_niv.rows) 
 					{
 						voisin = img_niv.at<uchar>(y_j, x_j) ;
-						img_niv.at<uchar>(y_j, x_j) = (voisin == 255) ? poids_i - 1 : voisin;
+						img_niv.at<uchar>(y_j, x_j) = (voisin < poids_i) ? poids_i - 1 : voisin;
 					}
 				}
 			}
@@ -411,23 +451,42 @@ void effectuer_pelage_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexi
 
 // Transformation 6 --------------------------
 
-void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
+void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Distance distance)
 {
     if (img_niv.type() != CV_8UC1) {
         std::cout << __func__ << ": format non géré :" << img_niv.type() << std::endl;
         return;
     }
 	
-	detecter_maximums_locaux (affi, img_niv, connexite); // "Compression" de l'image
+	detecter_maximums_locaux (affi, img_niv, distance); // "Compression" de l'image
+
+	int pix, voisin, x_i, y_i, n, a, b;
 	
-	int pix, voisin, x_i, y_i, n;
-	
-	switch(connexite) 
+	switch(distance) 
 	{
 		case My::D4:
+			a = 1;
+			b = 1;
 			n = 2;
 			break;
 		case My::D8:
+			a = 1;
+			b = 1;
+			n = 4;
+			break;
+		case My::D_1_2:
+			a = 1;
+			b = 2;
+			n = 4;
+			break;
+		case My::D_2_3:
+			a = 2;
+			b = 3;
+			n = 4;
+			break;
+		case My::D_3_4:
+			a = 3;
+			b = 4;
 			n = 4;
 			break;
 	}
@@ -442,7 +501,7 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
     for (int x = 0; x < img_niv.cols; x++)
 	{
 		pix = img_niv.at<uchar>(y, x);
-		if (pix > 0 && pix < 255) {
+		if (pix > a && pix < 255) {
 			for (int i = 0; i < n; i++) 
 			{
 				x_i = x + v_x1[i];
@@ -450,10 +509,14 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 				if (x_i >= 0 && y_i < img_niv.rows && x_i < img_niv.cols) 
 				{
 					voisin = img_niv.at<uchar>(y_i, x_i);
-					img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - 1) ? pix - 1 : voisin ;
+					if (i < 2) { // Voisins alignés
+						img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - a) ? pix - a : voisin ;
+					}	
+					else { // Voisins diagonaux
+						img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - b) ? pix - b : voisin ;
+					}
 				}
 			}
-		img_niv.at<uchar>(y, x) = pix;
 		}
 	}
 
@@ -461,7 +524,7 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
     for (int x = img_niv.cols - 1; x >= 0; x--)
 	{
 		pix = img_niv.at<uchar>(y, x);
-		if (pix > 0 && pix < 255) {
+		if (pix > a && pix < 255) {
 			for (int i = 0; i < n; i++) 
 			{
 				x_i = x + v_x2[i];
@@ -469,35 +532,41 @@ void effectuer_seq_RDT (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
 				if (x_i >= 0 && y_i >= 0 && x_i < img_niv.cols) 
 				{
 					voisin = img_niv.at<uchar>(y_i, x_i);
-					img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - 1) ? pix - 1 : voisin ;
+					if (i < 2) { // Voisins alignés
+						img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - a) ? pix - a : voisin ;
+					}	
+					else { // Voisins diagonaux
+						img_niv.at<uchar>(y_i, x_i) = (voisin == 255 || voisin < pix - b) ? pix - b : voisin ;
+					}
 				}
 			}
-		img_niv.at<uchar>(y, x) = pix;
 		}
 	}
+	//cv::imshow ("ImageSrc", img_niv);
+	//cv::waitKey (2000);
 }
 
 // Appelez ici vos transformations selon affi
-void effectuer_transformations (My::Affi affi, cv::Mat img_niv, My::Connexite connexite)
+void effectuer_transformations (My::Affi affi, cv::Mat img_niv, My::Distance distance)
 {
     switch (affi) {
         case My::A_TRANS1 :
-            effectuer_pelage_contours (img_niv, connexite);
+            effectuer_pelage_contours (img_niv, distance);
             break;
         case My::A_TRANS2 :
-            detecter_maximums_locaux (affi, img_niv, connexite);
+            detecter_maximums_locaux (affi, img_niv, distance);
             break;
         case My::A_TRANS3 :
-            effectuer_pelage_RDT (affi, img_niv, connexite);
+            effectuer_pelage_RDT (affi, img_niv, distance);
             break;
         case My::A_TRANS4 :
-			effectuer_seq_DT (img_niv, connexite);
+			effectuer_seq_DT (img_niv, distance);
             break;
         case My::A_TRANS5 :
-            detecter_maximums_locaux (affi, img_niv, connexite);
+            detecter_maximums_locaux (affi, img_niv, distance);
             break;
         case My::A_TRANS6 :	
-			effectuer_seq_RDT (affi, img_niv, connexite);
+			effectuer_seq_RDT (affi, img_niv, distance);
             break;
         default : ;
     }
@@ -558,6 +627,7 @@ void afficher_aide() {
         "   i    inverse les couleurs de src\n"
         "   o    affiche l'image src originale\n"
         "   s    affiche l'image src seuillée\n"
+        "   d    modifie le calcul de distance\n"
         "   1    affiche l'image pelée\n"
         "   2    affiche les maximums locaux (Modulo 16)\n"
         "   3    affiche l'image rétablie par distance inverse\n"
@@ -610,16 +680,28 @@ int onKeyPressEvent (int key, void *data)
             my->affi = My::A_SEUIL;
             my->set_recalc(My::R_SEUIL);
             break;
-        case 'c' :
-			switch(my->connexite) 
+        case 'd' :
+			switch(my->distance) 
 			{
 				case My::D4:
-					my->connexite = My::D8;
-					std::cout << "Nouvelle connexite : 8" << std::endl;
+					my->distance = My::D8;
+					std::cout << "Nouvelle distance : d8" << std::endl;
 					break;
 				case My::D8:
-					my->connexite = My::D4;
-					std::cout << "Nouvelle connexite : 4" << std::endl;
+					my->distance = My::D_1_2;
+					std::cout << "Nouvelle distance : d_1_2" << std::endl;
+					break;
+				case My::D_1_2:
+					my->distance = My::D_2_3;
+					std::cout << "Nouvelle distance : d_2_3" << std::endl;
+					break;
+				case My::D_2_3:
+					my->distance = My::D_3_4;
+					std::cout << "Nouvelle distance : d_3_4" << std::endl;
+					break;
+				case My::D_3_4:
+					my->distance = My::D4;
+					std::cout << "Nouvelle distance : d4" << std::endl;
 					break;
 			}
             my->set_recalc(My::R_TRANSFOS);
@@ -742,7 +824,7 @@ int main (int argc, char**argv)
             	cv::Mat img_gry; // On effectue à nouveau le seuillage car l'image pelée en a besoin
             	cv::cvtColor (my.img_src, img_gry, cv::COLOR_BGR2GRAY);
             	cv::threshold (img_gry, my.img_niv, my.seuil, 255, cv::THRESH_BINARY);
-                effectuer_transformations (my.affi, my.img_niv, my.connexite);
+                effectuer_transformations (my.affi, my.img_niv, my.distance);
                 representer_en_couleurs_vga (my.img_niv, my.img_coul);
             } else my.img_coul = my.img_src.clone();
         }
